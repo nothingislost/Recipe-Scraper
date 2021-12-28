@@ -2,7 +2,7 @@
 
 const fetch = require("node-fetch");
 const cheerio = require("cheerio");
-const {validate} = require("jsonschema");
+const { validate } = require("jsonschema");
 
 const Recipe = require("./Recipe");
 const recipeSchema = require("./RecipeSchema.json");
@@ -15,16 +15,26 @@ class BaseScraper {
     this.url = url;
     this.subUrl = subUrl;
     this.status = null;
+    this.request = window.request;
   }
 
   async checkServerResponse() {
-    try {
-      const res = await fetch(this.url);
-
-      return res.ok; // res.status >= 200 && res.status < 300
-    } catch (e) {
-      // console.log(e)
-      return false;
+    if (this.request) {
+      try {
+        const res = await this.request({ url: this.url });
+        return !!res; // res.status >= 200 && res.status < 300
+      } catch (e) {
+        // console.log(e)
+        return false;
+      }
+    } else {
+      try {
+        const res = await fetch(this.url);
+        return res.ok; // res.status >= 200 && res.status < 300
+      } catch (e) {
+        // console.log(e)
+        return false;
+      }
     }
   }
 
@@ -61,26 +71,23 @@ class BaseScraper {
       if (jsonLD && jsonLD.children && Array.isArray(jsonLD.children)) {
         jsonLD.children.forEach(el => {
           if (el.data) {
-
             const jsonRaw = el.data;
             const result = JSON.parse(jsonRaw);
             let recipe;
 
-
-
-            if (result['@graph'] && Array.isArray(result['@graph'])) {
-              result['@graph'].forEach(g => {
-                if (g['@type'] === 'Recipe') {
+            if (result["@graph"] && Array.isArray(result["@graph"])) {
+              result["@graph"].forEach(g => {
+                if (g["@type"] === "Recipe") {
                   recipe = g;
                 }
-              })
+              });
             }
 
-            if (result['@type'] === 'Recipe') {
+            if (result["@type"] === "Recipe") {
               recipe = result;
             }
 
-            if (Array.isArray(result['@type']) && result['@type'].includes('Recipe')) {
+            if (Array.isArray(result["@type"]) && result["@type"].includes("Recipe")) {
               recipe = result;
             }
 
@@ -112,30 +119,29 @@ class BaseScraper {
                   this.defaultSetImage($);
                 }
 
-
                 // tags
                 this.recipe.tags = [];
                 if (recipe.keywords) {
                   if (typeof recipe.keywords === "string") {
-                    this.recipe.tags = [...recipe.keywords.split(',')]
+                    this.recipe.tags = [...recipe.keywords.split(",")];
                   } else if (Array.isArray(recipe.keywords)) {
-                    this.recipe.tags = [...recipe.keywords]
+                    this.recipe.tags = [...recipe.keywords];
                   }
                 }
 
                 if (recipe.recipeCuisine) {
                   if (typeof recipe.recipeCuisine === "string") {
-                    this.recipe.tags.push(recipe.recipeCuisine)
+                    this.recipe.tags.push(recipe.recipeCuisine);
                   } else if (Array.isArray(recipe.recipeCuisine)) {
-                    this.recipe.tags = [...new Set([...this.recipe.tags, ...recipe.recipeCuisine])]
+                    this.recipe.tags = [...new Set([...this.recipe.tags, ...recipe.recipeCuisine])];
                   }
                 }
 
                 if (recipe.recipeCategory) {
                   if (typeof recipe.recipeCategory === "string") {
-                    this.recipe.tags.push(recipe.recipeCategory)
+                    this.recipe.tags.push(recipe.recipeCategory);
                   } else if (Array.isArray(recipe.recipeCategory)) {
-                    this.recipe.tags = [...new Set([...this.recipe.tags, ...recipe.recipeCategory])]
+                    this.recipe.tags = [...new Set([...this.recipe.tags, ...recipe.recipeCategory])];
                   }
                 }
 
@@ -146,28 +152,31 @@ class BaseScraper {
                 if (Array.isArray(recipe.recipeIngredient)) {
                   this.recipe.ingredients = recipe.recipeIngredient.map(i => BaseScraper.HtmlDecode($, i));
                 } else if (typeof recipe.recipeIngredient === "string") {
-                  this.recipe.ingredients = recipe.recipeIngredient.split(",").map(i => BaseScraper.HtmlDecode($, i.trim()));
+                  this.recipe.ingredients = recipe.recipeIngredient
+                    .split(",")
+                    .map(i => BaseScraper.HtmlDecode($, i.trim()));
                 }
 
                 // instructions (may be string, array of strings, or object of sectioned instructions)
                 this.recipe.instructions = [];
                 this.recipe.sectionedInstructions = [];
 
-                if (recipe.recipeInstructions &&
+                if (
+                  recipe.recipeInstructions &&
                   recipe.recipeInstructions["@type"] === "ItemList" &&
-                  recipe.recipeInstructions.itemListElement) {
-
+                  recipe.recipeInstructions.itemListElement
+                ) {
                   recipe.recipeInstructions.itemListElement.forEach(section => {
                     this.recipe.instructions = [
                       ...this.recipe.instructions,
-                      ...section.itemListElement.map(i => BaseScraper.HtmlDecode($, i.text))
+                      ...section.itemListElement.map(i => BaseScraper.HtmlDecode($, i.text)),
                     ];
                     section.itemListElement.forEach(i => {
                       this.recipe.sectionedInstructions.push({
                         sectionTitle: section.name,
                         text: BaseScraper.HtmlDecode($, i.text),
-                        image: i.image || ''
-                      })
+                        image: i.image || "",
+                      });
                     });
                   });
                 } else if (Array.isArray(recipe.recipeInstructions)) {
@@ -175,10 +184,10 @@ class BaseScraper {
                     if (instructionStep["@type"] === "HowToStep") {
                       this.recipe.instructions.push(BaseScraper.HtmlDecode($, instructionStep.text));
                       this.recipe.sectionedInstructions.push({
-                        sectionTitle: instructionStep.name || '',
+                        sectionTitle: instructionStep.name || "",
                         text: BaseScraper.HtmlDecode($, instructionStep.text),
-                        image: instructionStep.image || ''
-                      })
+                        image: instructionStep.image || "",
+                      });
                     } else if (instructionStep["@type"] === "HowToSection") {
                       if (instructionStep.itemListElement) {
                         instructionStep.itemListElement.forEach(step => {
@@ -187,8 +196,8 @@ class BaseScraper {
                           this.recipe.sectionedInstructions.push({
                             sectionTitle: instructionStep.name,
                             text: BaseScraper.HtmlDecode($, step.text),
-                            image: step.image || ''
-                          })
+                            image: step.image || "",
+                          });
                         });
                       }
                     } else if (typeof instructionStep === "string") {
@@ -196,7 +205,7 @@ class BaseScraper {
                     }
                   });
                 } else if (typeof recipe.recipeInstructions === "string") {
-                  this.recipe.instructions = [BaseScraper.HtmlDecode($, recipe.recipeInstructions)]
+                  this.recipe.instructions = [BaseScraper.HtmlDecode($, recipe.recipeInstructions)];
                 }
 
                 // prep time
@@ -255,9 +264,9 @@ class BaseScraper {
       $("meta[property='og:title']").attr("content") ||
       $("meta[name='twitter:title']").attr("content");
 
-    title = title.split('|')[0];
+    title = title.split("|")[0];
 
-    this.recipe.name = title ? title.trim() : '';
+    this.recipe.name = title ? title.trim() : "";
   }
 
   /**
@@ -270,7 +279,7 @@ class BaseScraper {
       $("meta[property='og:description']").attr("content") ||
       $("meta[name='twitter:description']").attr("content");
 
-    this.recipe.description = description ? description.replace(/\n/g, " ").trim() : '';
+    this.recipe.description = description ? description.replace(/\n/g, " ").trim() : "";
   }
 
   /**
@@ -280,12 +289,21 @@ class BaseScraper {
   async fetchDOMModel() {
     try {
       const meta = [
-        ['User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/11.1.2 Safari/605.1.15'],
+        [
+          "User-Agent",
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/11.1.2 Safari/605.1.15",
+        ],
       ];
+      let html
       const headers = new fetch.Headers(meta);
-      const res = await fetch(this.url, {headers});
-      const html = await res.text();
-      this.status = res.status;
+      if (this.request) {
+        html = await this.request({ url: this.url, headers: headers });
+        this.status = 200; // request() doesn't give us a response code
+      } else {
+        const res = await fetch(this.url, { headers });
+        html = await res.text();
+        this.status = res.status;
+      }
 
       return cheerio.load(html);
     } catch (err) {
@@ -329,11 +347,12 @@ class BaseScraper {
   }
 
   static HtmlDecode($, s) {
-    const res = $('<div>').html(s).text() || "";
+    const res = $("<div>").html(s).text() || "";
 
-    return res.trim()
-      .replace(/amp;/gm, '')
-      .replace(/(?=\[caption).*?(?<=\[ caption\])/g, '') // removes short-codes [caption.*[ caption]
+    return res
+      .trim()
+      .replace(/amp;/gm, "")
+      .replace(/(?=\[caption).*?(?<=\[ caption\])/g, "") // removes short-codes [caption.*[ caption]
       .replace(/\n/g, "");
   }
 
@@ -353,10 +372,10 @@ class BaseScraper {
   }
 
   static parsePTTime(ptTime) {
-    ptTime = ptTime.replace('PT', '');
-    ptTime = ptTime.replace('H', ' hours ');
-    ptTime = ptTime.replace('M', ' minutes ');
-    ptTime = ptTime.replace('S', ' seconds');
+    ptTime = ptTime.replace("PT", "");
+    ptTime = ptTime.replace("H", " hours ");
+    ptTime = ptTime.replace("M", " minutes ");
+    ptTime = ptTime.replace("S", " seconds");
 
     return ptTime.trim();
   }

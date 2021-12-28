@@ -288,19 +288,20 @@ class BaseScraper {
    */
   async fetchDOMModel() {
     try {
-      const meta = [
-        [
-          "User-Agent",
+      const headers = {
+        "User-Agent":
           "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/11.1.2 Safari/605.1.15",
-        ],
-      ];
-      let html
-      const headers = new fetch.Headers(meta);
+      };
+      let html;
       if (this.request) {
-        html = await this.request({ url: this.url, headers: headers });
-        this.status = 200; // request() doesn't give us a response code
+        try {
+          html = await this.request({ url: this.url, headers });
+          this.status = 200; // request() doesn't give us a response code
+        } catch (err) {
+          this.status = 500;
+        }
       } else {
-        const res = await fetch(this.url, { headers });
+        const res = await fetch(this.url, headers);
         html = await res.text();
         this.status = res.status;
       }

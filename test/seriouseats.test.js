@@ -19,6 +19,14 @@ describe("seriousEats", () => {
     );
   });
 
+  it("should fetch the expected recipe, new format", async () => {
+    seriousEats.url = constants.testUrlNew;
+    let actualRecipe = await seriousEats.fetchRecipe();
+    expect(JSON.stringify(constants.expectedRecipeNew)).to.equal(
+      JSON.stringify(actualRecipe)
+    );
+  });
+
   it("should throw an error if invalid url is used", async () => {
     try {
       seriousEats.url = constants.invalidDomainUrl;

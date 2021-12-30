@@ -160,7 +160,11 @@ class BaseScraper {
                 // instructions (may be string, array of strings, or object of sectioned instructions)
                 this.recipe.instructions = [];
                 this.recipe.sectionedInstructions = [];
-
+                // bit of a hack to parse out malformed instructions
+                // such as https://www.kingarthurbaking.com/recipes/artisan-no-knead-pizza-crust-recipe
+                if (typeof recipe.recipeInstructions === "string" && recipe.recipeInstructions.contains("<p>")) {
+                  recipe.recipeInstructions = recipe.recipeInstructions.split("<p>").filter(l => l)
+                } 
                 if (
                   recipe.recipeInstructions &&
                   recipe.recipeInstructions["@type"] === "ItemList" &&
@@ -201,7 +205,9 @@ class BaseScraper {
                         });
                       }
                     } else if (typeof instructionStep === "string") {
-                      this.recipe.instructions.push(BaseScraper.HtmlDecode($, instructionStep));
+                      // replace and trim are to clean up malformed instructions
+                      // like https://www.kingarthurbaking.com/recipes/artisan-no-knead-pizza-crust-recipe
+                      this.recipe.instructions.push(BaseScraper.HtmlDecode($, instructionStep).replace(/,$/, "").trim());
                     }
                   });
                 } else if (typeof recipe.recipeInstructions === "string") {

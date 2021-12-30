@@ -17,14 +17,28 @@ class SeriousEatsScraper extends BaseScraper {
   scrape($) {
     this.defaultSetImage($);
     this.defaultSetDescription($);
-    const { ingredients, instructions, time } = this.recipe;
+    const { ingredients, instructions, time, tags } = this.recipe;
     this.recipe.name = $("#heading_1-0")
       .find(".heading__title")
       .text();
 
-    $(".ingredient").each((i, el) => {
-      ingredients.push(this.textTrim($(el)));
-    });
+    $("#structured-ingredients_1-0")
+      .find("ul p")
+      .each((i, el) => {
+        ingredients.push(this.textTrim($(el)));
+      });
+
+    if (ingredients.length === 0) // if no ingredients are found, try the old way
+      $(".ingredient").each((i, el) => {
+        ingredients.push(this.textTrim($(el)));
+      });
+
+
+    $("#link-list_1-0")
+      .find("li a")
+      .each((i, el) => {
+        tags.push(this.textTrim($(el)));
+      });
 
     $("#structured-project__steps_1-0")
       .find("ol p")
